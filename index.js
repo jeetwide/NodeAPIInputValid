@@ -1,97 +1,41 @@
 const Joi = require('joi');
-
+const logger = require('./middleware/logger');
 const express = require('express');
 const app = express();
+const Helmet = require('helmet');
+const Morgan = require('morgan');
+const config = require('config');
+const courses = require('./routes/courses')
+const home = require('./routes/home')
+
 
 app.use(express.json());
+app.use(Helmet());
+app.use('/api/courses',courses)
+app.use('/',home)
 
 
-const courses = [
-    {id:1, name : 'course1'},
-    {id:2, name : 'course2'},
-    {id:3, name : 'course3'},
-];
+app.set('view engine','pug');
+app.set('views','./views');
 
-app.get('/', (req, res) => {
-    res.send('hh through nodemon');
-
-});
-
-//get all courses
-app.get('/api/courses', (req, res) => {
-    res.send(courses);
-
-});
-//fetch a single course
-app.get('/api/courses/:id', (req, res) => {
-    const course = courses.find(c => c.id === parseInt(req.params.id));
-    if(!course) return res.status(404).send("Course not found with given ID");
-    res.send(course);
-   });
+//Configuration
+console.log('Application Name: '+ config.get('name'));
+console.log('Mail Server  Name: '+ config.get('mail.host'));
+console.log('Mail Server  Password: '+ config.get('mail.password'));
 
 
-   //Add a course
-app.post('/api/courses',(req,res) => {
-    const { error } = validateCourse(req.body);
-    //validate if invalid then return 400 - Bad Request.
-    
-    if(error){
-        //400 Bad Request
-        res.status(400).send(error.details[0].message);
-        return;
-    }
-   
-    const course = {
-        id:courses.length + 1,
-        name : req.body.name
-    };
 
-    courses.push(course);
-    res.send(course);
+if(app.get('env') === 'development'){
+    app.use(Morgan('tiny'));
+    console.log('Morgan Enabled...');
+}
 
-});
-
-//Update course
-app.put('/api/courses/:id', (req, res) => {
-    //look up for course if not exist then return 404.
-    const course = courses.find(c => c.id === parseInt(req.params.id));
-    if(!course) return res.status(404).send("Course not found with given ID");
-    
-
-   
-    const { error } = validateCourse(req.body);
+app.use(logger);
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
 
 
-    //validate if invalid then return 400 - Bad Request.
-    
-    if(error){
-        //400 Bad Request
-        return res.status(400).send(error.details[0].message);
-        
-    }
 
-    //if all well then update course & return updated course in response
-    course.name=req.body.name;
-    res.send(course);
-});
-
-
-app.delete('/api/courses/:id',(req,res) => {
-    const course = courses.find(c => c.id === parseInt(req.params.id));
-    if(!course) return res.status(404).send("Course not found with given ID");
-    
-    const index = courses.indexOf(course);
-    courses.splice(index,1);
-
-    res.send(course);
-
-});
-function validateCourse(course){
-    const schema = {
-        name: Joi.string().min(3).required()
-    };
-    return  Joi.validate(course,schema);
-};
 
 
 const port = process.env.port || 3001;
